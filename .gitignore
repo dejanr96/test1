@@ -23,6 +23,7 @@ MANIFEST
 
 # Virtual Env
 venv/
+venv_gpu/
 env/
 ENV/
 
