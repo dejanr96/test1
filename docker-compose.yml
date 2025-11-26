@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  apex-brain:
+    build: .
+    container_name: apex-brain
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    # command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    command: python src/main.py
+  # Optional: Redis for high-speed data buffering if needed later
+  # redis:
+  #   image: "redis:alpine"
+  #   ports:
+  #     - "6379:6379"
