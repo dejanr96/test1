@@ -116,13 +116,13 @@ async def main():
     logger.info(f"Data Split: Train={len(train_df)}, Val={len(val_df)}, Test={len(test_df)}")
 
     # 5. Environment Setup with Parallelization (Training)
-    logger.info("Setting up Parallel Environments (8 Cores - Balanced CPU/GPU)...")
+    logger.info("Setting up Parallel Environments (24 Cores - High Throughput)...")
     
     env_kwargs = {'df': train_df}
     
     env = make_vec_env(
         TradingEnv, 
-        n_envs=8,  # Balanced for CPU/GPU workload
+        n_envs=24,  # Maximize CPU parallelism for feature engineering
         seed=42, 
         vec_env_cls=SubprocVecEnv, 
         env_kwargs=env_kwargs,
@@ -130,28 +130,59 @@ async def main():
     )
     
     # WRAPPER: VecNormalize
-    # Critical for PPO convergence.
-    env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.)
-
-    # 6. Model Architecture (Phase 1 Optimizations)
-    model_path = "ppo_apex_model_production.zip"
+    # Critical for PPO convergence. Load Phase 1 stats if available.
     stats_path = "vec_normalize.pkl"
+    try:
+        if os.path.exists(stats_path):
+            logger.info(f"Loading VecNormalize stats from {stats_path}...")
+            env = VecNormalize.load(stats_path, env)
+            env.training = True # Ensure we continue updating stats
+            env.norm_reward = True
+        else:
+            raise FileNotFoundError("No stats file.")
+    except Exception as e:
+        logger.warning(f"Could not load VecNormalize stats: {e}. Initializing NEW VecNormalize...")
+        env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.)
+        
+        # WARMUP: Run random steps to calibrate normalization
+        logger.info("Running warmup (2000 steps) to calibrate normalization...")
+        obs = env.reset()
+        for _ in range(2000):
+            action = [env.action_space.sample() for _ in range(env.num_envs)]
+            obs, _, _, _ = env.step(action)
+        logger.info("Warmup complete.")
+
+    # 6. Model Architecture (Phase 3: Aggressive Profit Seeking)
+    model_path = "ppo_apex_model_production.zip"
+    phase2_checkpoint = "checkpoints/ppo_apex_phase2_9600000_steps.zip"
     
-    logger.info("Initializing PPO Agent (Phase 1: GPU Accelerated - Balanced Config)...")
-    model = PPO(
-        "MlpPolicy", 
-        env, 
-        verbose=1, 
-        learning_rate=3e-4, 
-        n_steps=2048,  # Balanced for throughput
-        batch_size=128,  # Moderate GPU utilization
-        gamma=0.99, 
-        gae_lambda=0.0, # TD(1) for fastest convergence
-        clip_range=0.2, 
-        ent_coef=0.001, # Dampened for exploitation focus
-        device="cuda",  # GPU acceleration
-        tensorboard_log="./tensorboard_logs/"
-    )
+    if os.path.exists(phase2_checkpoint):
+        logger.info(f"Loading Phase 2 Model from {phase2_checkpoint}...")
+        # Load model but attach new env
+        model = PPO.load(phase2_checkpoint, env=env, device="cuda", tensorboard_log="./tensorboard_logs/")
+        
+        # Explicitly set Phase 3 params (Hybrid Rehab)
+        model.ent_coef = 0.01 # High Entropy for exploration
+        model.gae_lambda = 0.0
+        model.learning_rate = 3e-4 
+        model.n_steps = 2048
+        model.batch_size = 2048 
+    else:
+        logger.warning(f"Phase 2 checkpoint not found at {phase2_checkpoint}. Starting fresh (NOT RECOMMENDED).")
+        model = PPO(
+            "MlpPolicy", 
+            env, 
+            verbose=1, 
+            learning_rate=3e-4, 
+            n_steps=2048, 
+            batch_size=2048, 
+            gamma=0.99, 
+            gae_lambda=0.0, 
+            clip_range=0.2, 
+            ent_coef=0.01, # SHOCK THERAPY
+            device="cuda", 
+            tensorboard_log="./tensorboard_logs/"
+        )
     
     # 7. Training Loop
     TOTAL_TIMESTEPS = 10_000_000 
@@ -162,7 +193,7 @@ async def main():
     checkpoint_callback = CheckpointCallback(
         save_freq=100000,
         save_path='./checkpoints/',
-        name_prefix='ppo_apex_phase1'
+        name_prefix='ppo_apex_phase3_rehab' # Rehab prefix
     )
     
     callback = CallbackList([tb_callback, progress_callback, checkpoint_callback])

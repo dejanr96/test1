@@ -24,7 +24,7 @@ class MarketRegimeDetector:
         # 1. Volatility check (ATR)
         current_atr = df['atr'].iloc[-1] if 'atr' in df else 0
         avg_atr = df['atr'].mean() if 'atr' in df else 0
-        is_volatile = current_atr > (avg_atr * 1.5)
+        is_volatile = current_atr > (avg_atr * 2.0) # Relaxed from 1.5 for Phase 2
 
         if is_volatile:
             return MarketRegimeType.VOLATILE

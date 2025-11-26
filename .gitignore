@@ -1,49 +1,11 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual Env
-venv/
 venv_gpu/
-env/
-ENV/
-
-# Environment Variables
+__pycache__/
+*.pyc
 .env
-
-# IDE
+.DS_Store
 .vscode/
 .idea/
-
-# Node
-node_modules/
-npm-debug.log
-yarn-error.log
-
-# Project Specific
-data/
-logs/
-models/
+*.log
+tensorboard_logs/
 checkpoints/
-*.mp4
-*.webp
-artifacts/
+data/
