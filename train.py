@@ -116,13 +116,13 @@ async def main():
     logger.info(f"Data Split: Train={len(train_df)}, Val={len(val_df)}, Test={len(test_df)}")
 
     # 5. Environment Setup with Parallelization (Training)
-    logger.info("Setting up Parallel Environments (16 Cores)...")
+    logger.info("Setting up Parallel Environments (8 Cores - Balanced CPU/GPU)...")
     
     env_kwargs = {'df': train_df}
     
     env = make_vec_env(
         TradingEnv, 
-        n_envs=16, 
+        n_envs=8,  # Balanced for CPU/GPU workload
         seed=42, 
         vec_env_cls=SubprocVecEnv, 
         env_kwargs=env_kwargs,
@@ -133,25 +133,23 @@ async def main():
     # Critical for PPO convergence.
     env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.)
 
-    # 6. Model Architecture (Stabilized)
-    # Learning Rate: 1e-4 (Lowered from 3e-4)
+    # 6. Model Architecture (Phase 1 Optimizations)
     model_path = "ppo_apex_model_production.zip"
     stats_path = "vec_normalize.pkl"
     
-    logger.info("Initializing PPO Agent (Comprehensive Bias Correction)...")
+    logger.info("Initializing PPO Agent (Phase 1: GPU Accelerated - Balanced Config)...")
     model = PPO(
-        "MlpPolicy",
-        env,
-        learning_rate=1e-4,
-        n_steps=2048, 
-        batch_size=4096,
-        n_epochs=10,
-        gamma=0.99,
-        gae_lambda=0.95, # Standard PPO efficiency
-        clip_range=0.2,
-        ent_coef=0.001, # Strong dampening of exploration
-        verbose=1,
-        device="cpu",
+        "MlpPolicy", 
+        env, 
+        verbose=1, 
+        learning_rate=3e-4, 
+        n_steps=2048,  # Balanced for throughput
+        batch_size=128,  # Moderate GPU utilization
+        gamma=0.99, 
+        gae_lambda=0.0, # TD(1) for fastest convergence
+        clip_range=0.2, 
+        ent_coef=0.001, # Dampened for exploitation focus
+        device="cuda",  # GPU acceleration
         tensorboard_log="./tensorboard_logs/"
     )
     
@@ -160,17 +158,17 @@ async def main():
     logger.info(f"Starting Training for {TOTAL_TIMESTEPS} timesteps...")
     
     tb_callback = TensorboardCallback()
-    progress_callback = SimpleProgressCallback(check_freq=6250, total_timesteps=TOTAL_TIMESTEPS)
+    progress_callback = SimpleProgressCallback(check_freq=2048, total_timesteps=TOTAL_TIMESTEPS)  # Log every 2048 steps
     checkpoint_callback = CheckpointCallback(
         save_freq=100000,
         save_path='./checkpoints/',
-        name_prefix='ppo_apex_rescue'
+        name_prefix='ppo_apex_phase1'
     )
     
     callback = CallbackList([tb_callback, progress_callback, checkpoint_callback])
     
     try:
-        model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callback, progress_bar=False)
+        model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callback, progress_bar=True)  # Enable progress bar
         logger.info("Training Complete.")
         
         # 8. Save Model AND Normalization Stats
