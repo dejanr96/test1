@@ -106,10 +106,9 @@ class PPO_HFT_Algo(QCAlgorithm):
         
         # 2. AUTO-DOWNLOAD MODEL (Bypass Upload Limits)
         # ---------------------------------------------------------------
-        # REPLACE THESE URLs WITH YOUR RAW GITHUB LINKS
-        # Example: https://raw.githubusercontent.com/username/repo/main/quant_execution_model.zip
-        MODEL_URL = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/master/quant_execution_model.zip"
-        STATS_URL = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/master/quant_execution_stats.pkl"
+        # RAW GITHUB LINKS (Auto-Filled)
+        MODEL_URL = "https://raw.githubusercontent.com/dejanr96/test1/master/quant_execution_model.zip"
+        STATS_URL = "https://raw.githubusercontent.com/dejanr96/test1/master/quant_execution_stats.pkl"
         # ---------------------------------------------------------------
         
         self.model_path = "quant_execution_model.zip"
