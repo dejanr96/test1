@@ -104,12 +104,35 @@ class PPO_HFT_Algo(QCAlgorithm):
         # 1. Add Crypto
         self.symbol = self.AddCrypto("BTCUSDT", Resolution.Minute).Symbol
         
-        # 2. Load Model
-        # NOTE: You must upload 'quant_execution_model.zip' and 'quant_execution_stats.pkl' 
-        # to the Object Store or Project Files.
-        self.model_path = self.GetParameter("model_path", "quant_execution_model.zip")
-        self.stats_path = self.GetParameter("stats_path", "quant_execution_stats.pkl")
+        # 2. AUTO-DOWNLOAD MODEL (Bypass Upload Limits)
+        # ---------------------------------------------------------------
+        # REPLACE THESE URLs WITH YOUR RAW GITHUB LINKS
+        # Example: https://raw.githubusercontent.com/username/repo/main/quant_execution_model.zip
+        MODEL_URL = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/master/quant_execution_model.zip"
+        STATS_URL = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/master/quant_execution_stats.pkl"
+        # ---------------------------------------------------------------
         
+        self.model_path = "quant_execution_model.zip"
+        self.stats_path = "quant_execution_stats.pkl"
+        
+        self.Debug("⬇️ Downloading Model & Stats...")
+        try:
+            # Download Model
+            model_data = self.Download(MODEL_URL)
+            with open(self.model_path, 'wb') as f:
+                f.write(model_data.encode('latin1')) # QC Download returns string, need bytes hack or use requests if available
+            
+            # Download Stats
+            stats_data = self.Download(STATS_URL)
+            with open(self.stats_path, 'wb') as f:
+                f.write(stats_data.encode('latin1'))
+                
+            self.Debug("✅ Download Complete.")
+        except Exception as e:
+            self.Debug(f"❌ Download Failed: {e}")
+            self.Debug("⚠️ Please ensure URLs are correct and accessible!")
+            return
+
         self.Debug("🧠 Loading Brain...")
         
         # Hack to load stats
